@@ -242,11 +242,7 @@ void NinjamController::process(const Audio::SamplesBuffer &in, Audio::SamplesBuf
                             mainController->mixGroupedInputs(groupIndex, inputMixBuffer);
 
                             //encoding is running in another thread to avoid slow down the audio thread
-                            QMetaObject::invokeMethod(encodingWorker, "addSamplesToEncode", Qt::QueuedConnection,
-                                                      Q_ARG(const Audio::SamplesBuffer, inputMixBuffer),
-                                                      Q_ARG(quint8, groupIndex),
-                                                      Q_ARG(bool, isFirstPart),
-                                                      Q_ARG(bool, isLastPart));
+                            encodingWorker->addSamplesToEncode(inputMixBuffer, groupIndex, isFirstPart, isLastPart);
                         }
                     }
                 }
@@ -291,7 +287,6 @@ void NinjamController::stop(bool emitDisconnectedingSignal){
         encodingWorker->stop();
         encodingThread->wait();//wait the encoding thread to finish
         delete encodingWorker;
-        delete encodingThread;
         encodingWorker = nullptr;
         encodingThread = nullptr;
     }
@@ -352,8 +347,8 @@ void NinjamController::start(const Ninjam::Server& server, QMap<int, bool> chann
     processScheduledChanges();
 
     if(!running){
-        encodingThread = new QThread(this);
-        encodingWorker = new EncodingWorker(this, this);
+        encodingWorker = new EncodingWorker(this);
+        encodingThread = new QThread(encodingWorker);
         encodingWorker->moveToThread(encodingThread);
         QObject::connect(encodingThread, SIGNAL(started()), encodingWorker, SLOT(run()));
         encodingThread->start();
